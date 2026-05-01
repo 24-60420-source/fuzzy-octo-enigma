@@ -201,6 +201,13 @@ body {
 .card li { margin-bottom: 4px; }
 .card strong { color: var(--text); font-weight: 500; }
 
+/* ── NOTICE CARD ── */
+.card.notice {
+  border-color: rgba(245,158,11,0.3);
+  background: rgba(245,158,11,0.06);
+}
+.card.notice h3 { color: #fcd34d; }
+
 /* ── TABLES ── */
 .table-wrap { overflow-x: auto; margin: 10px 0; border-radius: 10px; border: 1px solid var(--border); }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -539,9 +546,10 @@ footer {
     <div class="card">
       <h3>Root Path Cost — Port Costs</h3>
       <p>The <strong>internal root path cost</strong> = sum of all port costs along the path to the root bridge. Lower cost = preferred path.</p>
+      <p style="margin-top:8px;"><strong>Short path cost</strong> (802.1D-1998) uses smaller integer values and was designed for networks up to 10 Gbps. <strong>Long path cost</strong> (802.1w-2004 / RSTP) uses much larger values and accommodates link speeds well beyond 10 Gbps — future-proofing cost calculations for higher-speed links.</p>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Link Speed</th><th>STP Cost (802.1D-1998)</th><th>RSTP Cost (802.1w-2004)</th></tr></thead>
+          <thead><tr><th>Link Speed</th><th>Short Path Cost (802.1D)</th><th>Long Path Cost (RSTP 802.1w)</th></tr></thead>
           <tbody>
             <tr><td>10 Gbps</td><td>2</td><td>2,000</td></tr>
             <tr><td>1 Gbps</td><td>4</td><td>20,000</td></tr>
@@ -608,7 +616,8 @@ footer {
             <tr><td>802.1D-2004</td><td>Updated STP incorporating IEEE 802.1w (RSTP).</td></tr>
             <tr><td>RSTP (802.1w)</td><td>Rapid Spanning Tree Protocol — faster convergence (sometimes milliseconds). Uses 3 port states. Backward compatible with STP.</td></tr>
             <tr><td>Rapid PVST+</td><td>Cisco's RSTP + PVST+ = separate 802.1w instance per VLAN. Requires explicit configuration.</td></tr>
-            <tr><td>MSTP / MST</td><td>Maps multiple VLANs to same spanning tree instance. MST = Cisco implementation, up to 16 RSTP instances.</td></tr>
+            <tr><td>MISTP</td><td>Multiple Instance STP — Cisco's original proprietary version (predates MSTP). Mapped VLANs to instances. Inspired the IEEE MSTP standard.</td></tr>
+            <tr><td>MSTP / MST</td><td>IEEE 802.1s — maps multiple VLANs to same spanning tree instance. MST = Cisco implementation, up to 16 RSTP instances. Based on MISTP concepts.</td></tr>
           </tbody>
         </table>
       </div>
@@ -838,6 +847,7 @@ footer {
             <li><span class="cmd">dns-server 8.8.8.8 8.8.4.4</span></li>
             <li><span class="cmd">domain-name example.com</span></li>
             <li><span class="cmd">lease 7</span> (days) or <span class="cmd">lease infinite</span></li>
+            <li><span class="cmd">netbios-name-server 192.168.10.250</span> — optionally configure a WINS server for NetBIOS name resolution (Windows environments)</li>
           </ul>
         </li>
       </ul>
@@ -848,8 +858,14 @@ footer {
         <li><span class="cmd">show running-config | section dhcp</span> — view all DHCP config</li>
         <li><span class="cmd">show ip dhcp binding</span> — IP-to-MAC address bindings issued</li>
         <li><span class="cmd">show ip dhcp server statistics</span> — count of messages sent/received</li>
+        <li><span class="cmd">ipconfig /all</span> (on a Windows PC) — verify the PC received the correct IP, subnet mask, gateway, DNS from DHCP. Shows "DHCP Enabled: Yes" and the DHCP server's address.</li>
       </ul>
       <p style="margin-top:8px;">Disable: <span class="cmd">no service dhcp</span> &nbsp;|&nbsp; Re-enable: <span class="cmd">service dhcp</span></p>
+    </div>
+    <div class="card notice">
+      <h3>⚠ Clearing Bindings — Temporary Duplicate IP Risk</h3>
+      <p>When you use <span class="cmd">clear ip dhcp binding *</span> to remove all bindings, or restart the DHCP service with <span class="cmd">no service dhcp</span> followed by <span class="cmd">service dhcp</span>, the server loses its record of which addresses are currently leased.</p>
+      <p style="margin-top:8px;">Clients that still hold valid leases will keep their old IPs, but the server may re-assign those same addresses to new clients — causing <strong>temporary duplicate IP address conflicts</strong> until the old leases expire or clients renew. Best practice: only clear bindings during planned maintenance windows.</p>
     </div>
     <div class="card">
       <h3>DHCPv4 Relay Agent</h3>
@@ -972,6 +988,10 @@ footer {
       <h2>8.3 — DHCPv6</h2>
     </div>
     <div class="card">
+      <h3>DHCPv6 Standard — RFC 3315</h3>
+      <p>DHCPv6 is defined in <strong>RFC 3315</strong> — "Dynamic Host Configuration Protocol for IPv6." It provides stateful address assignment similar to DHCPv4 but designed specifically for IPv6 networks. Unlike DHCPv4, DHCPv6 can operate in <strong>stateless mode</strong> (alongside SLAAC) for configuration-only distribution.</p>
+    </div>
+    <div class="card">
       <h3>DHCPv6 Operation — 6-Step Process</h3>
       <ol style="padding-left:1.2rem;">
         <li>Host sends <strong>RS</strong> (Router Solicitation)</li>
@@ -1004,7 +1024,7 @@ footer {
   <div class="section">
     <div class="section-head">
       <div class="mod-dot" style="background:var(--m8)"></div>
-      <h2>8.4 — Configure DHCPv6 Server</h2>
+      <h2>8.4 — Configure DHCPv6 Server &amp; Client</h2>
     </div>
     <div class="card">
       <h3>DHCPv6 Router Roles</h3>
@@ -1025,6 +1045,18 @@ footer {
       </ol>
     </div>
     <div class="card">
+      <h3>Stateless DHCPv6 Client — 5 Steps (Router as Client)</h3>
+      <p>Configure a Cisco router interface to use SLAAC for its GUA and stateless DHCPv6 for additional parameters:</p>
+      <ol style="padding-left:1.2rem; margin-top:8px;">
+        <li><span class="cmd">ipv6 unicast-routing</span> — enable IPv6 routing on this router</li>
+        <li>Enter the interface: <span class="cmd">interface g0/0/1</span></li>
+        <li><span class="cmd">ipv6 enable</span> — enable IPv6 and create a link-local address</li>
+        <li><span class="cmd">ipv6 address autoconfig</span> — use SLAAC to obtain a GUA (reads the RA's prefix)</li>
+        <li>Verify: <span class="cmd">show ipv6 interface g0/0/1</span> — confirms GUA assigned via SLAAC and stateless DHCPv6 config received</li>
+      </ol>
+      <p style="margin-top:8px;">The router as stateless client uses SLAAC for address assignment just like an end host — it processes the RA flags (A=1, O=1) the same way.</p>
+    </div>
+    <div class="card">
       <h3>Stateful DHCPv6 Server — 5+ Steps</h3>
       <ol style="padding-left:1.2rem;">
         <li><span class="cmd">ipv6 unicast-routing</span></li>
@@ -1034,6 +1066,18 @@ footer {
         <li><span class="cmd">ipv6 nd managed-config-flag</span> — set M flag = 1</li>
         <li><span class="cmd">ipv6 nd prefix default no-autoconfig</span> — set A flag = 0 (don't use SLAAC)</li>
       </ol>
+    </div>
+    <div class="card">
+      <h3>Stateful DHCPv6 Client — 5 Steps (Router as Client)</h3>
+      <p>Configure a Cisco router interface to get its IPv6 GUA and all configuration from a stateful DHCPv6 server:</p>
+      <ol style="padding-left:1.2rem; margin-top:8px;">
+        <li><span class="cmd">ipv6 unicast-routing</span> — enable IPv6 routing</li>
+        <li>Enter the interface: <span class="cmd">interface g0/0/1</span></li>
+        <li><span class="cmd">ipv6 enable</span> — enable IPv6 and auto-create a link-local address</li>
+        <li><span class="cmd">ipv6 address dhcp</span> — request a GUA from a stateful DHCPv6 server (sends SOLICIT)</li>
+        <li>Verify: <span class="cmd">show ipv6 interface g0/0/1</span> and <span class="cmd">show ipv6 dhcp interface g0/0/1</span> — confirms GUA assigned by DHCPv6 server</li>
+      </ol>
+      <p style="margin-top:8px;"><strong>Key difference from stateless:</strong> <span class="cmd">ipv6 address dhcp</span> contacts the DHCPv6 server for the GUA itself. <span class="cmd">ipv6 address autoconfig</span> uses SLAAC for the GUA and only contacts DHCPv6 for extra config info.</p>
     </div>
     <div class="card">
       <h3>DHCPv6 Relay Agent</h3>
@@ -1129,6 +1173,7 @@ footer {
     <div class="section-head"><h2>DHCPv4 vs DHCPv6</h2></div>
     <div class="table-wrap"><table><thead><tr><th>Feature</th><th>DHCPv4</th><th>DHCPv6</th></tr></thead><tbody>
       <tr><td>Address type</td><td>IPv4</td><td>IPv6 GUA</td></tr>
+      <tr><td>RFC</td><td>RFC 2131</td><td>RFC 3315</td></tr>
       <tr><td>First client msg</td><td>DHCPDISCOVER (broadcast)</td><td>SOLICIT (multicast)</td></tr>
       <tr><td>Server reply</td><td>DHCPOFFER</td><td>ADVERTISE</td></tr>
       <tr><td>Client acceptance</td><td>DHCPREQUEST</td><td>REQUEST</td></tr>
@@ -1138,6 +1183,7 @@ footer {
       <tr><td>Relay agent cmd</td><td>ip helper-address</td><td>ipv6 dhcp relay destination</td></tr>
       <tr><td>Works without DHCP?</td><td>APIPA (169.254.x.x)</td><td>Yes — SLAAC</td></tr>
       <tr><td>Stateless option?</td><td>No</td><td>Yes (O flag)</td></tr>
+      <tr><td>Client cmd (router)</td><td>ip address dhcp</td><td>ipv6 address dhcp (stateful) / ipv6 address autoconfig (SLAAC)</td></tr>
     </tbody></table></div>
   </div>
 
@@ -1151,13 +1197,14 @@ footer {
   </div>
 
   <div class="section">
-    <div class="section-head"><h2>STP Port Cost Reference</h2></div>
-    <div class="table-wrap"><table><thead><tr><th>Link Speed</th><th>STP Cost (802.1D-1998)</th><th>RSTP Cost (802.1w-2004)</th></tr></thead><tbody>
+    <div class="section-head"><h2>STP Port Cost Reference — Short vs Long</h2></div>
+    <div class="table-wrap"><table><thead><tr><th>Link Speed</th><th>Short Path Cost (802.1D)</th><th>Long Path Cost (RSTP 802.1w)</th></tr></thead><tbody>
       <tr><td>10 Gbps</td><td>2</td><td>2,000</td></tr>
       <tr><td>1 Gbps</td><td>4</td><td>20,000</td></tr>
       <tr><td>100 Mbps</td><td>19</td><td>200,000</td></tr>
       <tr><td>10 Mbps</td><td>100</td><td>2,000,000</td></tr>
     </tbody></table></div>
+    <p style="font-size:13px;color:var(--text3);margin-top:8px;padding:0 4px;">Short path cost was designed for networks up to 10 Gbps. Long path cost (RSTP) uses larger values to accommodate future higher-speed links beyond 10 Gbps.</p>
   </div>
 
   <div class="section">
@@ -1166,6 +1213,14 @@ footer {
       <tr><td>Hello</td><td>2 seconds</td><td>1–10 sec</td><td>Interval between BPDU transmissions</td></tr>
       <tr><td>Forward Delay</td><td>15 seconds</td><td>4–30 sec</td><td>Time spent in Listening AND Learning states (each)</td></tr>
       <tr><td>Max Age</td><td>20 seconds</td><td>6–40 sec</td><td>Max wait before STP topology change attempt</td></tr>
+    </tbody></table></div>
+  </div>
+
+  <div class="section">
+    <div class="section-head"><h2>DHCPv6 Client Commands</h2></div>
+    <div class="table-wrap"><table><thead><tr><th>Command</th><th>Mode</th><th>Effect</th></tr></thead><tbody>
+      <tr><td><code style="font-family:var(--font-mono);font-size:12px;color:#93b4ff;">ipv6 address autoconfig</code></td><td>Stateless DHCPv6 client</td><td>Use SLAAC for GUA; get DNS/domain from stateless DHCPv6 server (when O=1)</td></tr>
+      <tr><td><code style="font-family:var(--font-mono);font-size:12px;color:#93b4ff;">ipv6 address dhcp</code></td><td>Stateful DHCPv6 client</td><td>Request full GUA + config from stateful DHCPv6 server (when M=1)</td></tr>
     </tbody></table></div>
   </div>
 </div>
@@ -1204,7 +1259,7 @@ const quizData = {
     { q:"Who invented the Spanning Tree Algorithm (STA)?", choices:["Vint Cerf","Tim Berners-Lee","Radia Perlman","Bob Metcalfe"], correct:2, exp:"Radia Perlman invented the spanning tree algorithm while at Digital Equipment Corporation, published in her 1985 paper. She also wrote a poem about it called 'Algoryme'." },
     { q:"What is the default bridge priority value on Cisco switches?", choices:["0","4096","32768","61440"], correct:2, exp:"The default bridge priority is 32768. When all switches have the same priority, the switch with the lowest MAC address becomes the root bridge." },
     { q:"When two switches have the same bridge priority, what determines the root bridge?", choices:["Highest MAC address","Lowest MAC address","Highest IP address","Switch uptime"], correct:1, exp:"When bridge priorities are equal, the switch with the lowest hexadecimal MAC address wins the election." },
-    { q:"What is the STP port cost for a 100 Mbps link (IEEE 802.1D)?", choices:["2","4","19","100"], correct:2, exp:"Per IEEE 802.1D, 100 Mbps = cost 19. For 1 Gbps = 4, 10 Gbps = 2, 10 Mbps = 100." },
+    { q:"What is the STP port cost for a 100 Mbps link (IEEE 802.1D short path cost)?", choices:["2","4","19","100"], correct:2, exp:"Per IEEE 802.1D (short path cost), 100 Mbps = cost 19. For 1 Gbps = 4, 10 Gbps = 2, 10 Mbps = 100. RSTP uses long path costs which are much larger values." },
     { q:"Which port state forwards data frames AND updates the MAC address table?", choices:["Blocking","Listening","Learning","Forwarding"], correct:3, exp:"Only the Forwarding state forwards frames. Learning updates the MAC table but doesn't forward. Blocking only receives BPDUs." },
     { q:"What is the default Hello Timer in STP?", choices:["1 second","2 seconds","15 seconds","20 seconds"], correct:1, exp:"The default Hello Timer is 2 seconds — the interval between BPDU transmissions. Forward Delay is 15 sec and Max Age is 20 sec." },
     { q:"An alternate (blocked) port in STP is in this state to prevent loops:", choices:["Forwarding","Learning","Listening","Blocking"], correct:3, exp:"Alternate (backup) ports are placed in the blocking state. They receive BPDUs but do not forward user data." },
@@ -1238,11 +1293,11 @@ const quizData = {
     { q:"What command excludes addresses 192.168.10.1 through 192.168.10.10 from DHCP?", choices:["no ip dhcp address 192.168.10.1 192.168.10.10","ip dhcp excluded-address 192.168.10.1 192.168.10.10","ip dhcp reserve 192.168.10.1 192.168.10.10","exclude dhcp 192.168.10.1 192.168.10.10"], correct:1, exp:"'ip dhcp excluded-address low-address [high-address]' excludes addresses from the pool. Used for static assignments." },
     { q:"Which command shows IP-to-MAC bindings issued by DHCP?", choices:["show running-config | section dhcp","show ip dhcp server statistics","show ip dhcp binding","show ip interface dhcp"], correct:2, exp:"'show ip dhcp binding' displays all IPv4 to MAC address bindings provided by the DHCPv4 service." },
     { q:"Why is a DHCP relay agent needed?", choices:["To speed up DHCP","Routers don't forward broadcasts — relay is needed when DHCP server is on different subnet","To encrypt DHCP messages","To assign static addresses to MACs"], correct:1, exp:"Routers don't forward broadcast messages. 'ip helper-address' on the router converts DHCP broadcasts to unicasts and forwards them to the server." },
-    { q:"Which UDP port does the ip helper-address command forward for DNS?", choices:["TFTP — 69","TACACS — 49","DNS — 53","NetBIOS — 137"], correct:2, exp:"Port 53 is DNS. The 8 forwarded ports are: 37 (Time), 49 (TACACS), 53 (DNS), 67 (DHCP server), 68 (DHCP client), 69 (TFTP), 137 (NetBIOS name), 138 (NetBIOS datagram)." },
+    { q:"Which UDP service is forwarded by ip helper-address for DNS?", choices:["TFTP — 69","TACACS — 49","DNS — 53","NetBIOS — 137"], correct:2, exp:"Port 53 is DNS. The 8 forwarded ports are: 37 (Time), 49 (TACACS), 53 (DNS), 67 (DHCP server), 68 (DHCP client), 69 (TFTP), 137 (NetBIOS name), 138 (NetBIOS datagram)." },
     { q:"How do you configure a router interface to get its IP from a DHCP server?", choices:["ip address auto","ip address dhcp","dhcp client enable","ip address 0.0.0.0 dhcp"], correct:1, exp:"'ip address dhcp' (interface config mode) sets the interface to request its IP address from a DHCP server." },
     { q:"How do you disable the DHCPv4 server process on a Cisco router?", choices:["no ip dhcp","no service dhcp","ip dhcp disable","shutdown dhcp"], correct:1, exp:"'no service dhcp' disables the DHCPv4 service. It is enabled by default. 'service dhcp' re-enables it." },
-    { q:"When a DHCP lease expires and cannot be renewed, what happens to the address?", choices:["Client keeps it indefinitely","Server returns it to the pool for reallocation","Router assigns new IP automatically","Client gets an APIPA address"], correct:1, exp:"When a lease expires, the DHCP server returns the address to the pool for reallocation. This prevents powered-off devices from holding addresses." },
-    { q:"Which DHCPv4 pool command sets the default gateway for clients?", choices:["gateway address","default-router address","ip-gateway address","router-address address"], correct:1, exp:"'default-router address' sets the default gateway in the DHCP pool. Up to 8 addresses can be specified." }
+    { q:"What is the risk of using 'clear ip dhcp binding *' while clients still hold active leases?", choices:["Router reloads automatically","Temporary duplicate IP address conflicts until old leases expire","All clients immediately lose connectivity permanently","DHCP pool is permanently deleted"], correct:1, exp:"Clearing bindings makes the server forget issued leases. It may re-issue those same addresses to new clients while old clients still hold them, causing temporary duplicate IP conflicts." },
+    { q:"Which Windows command verifies a PC received correct DHCP configuration?", choices:["ipconfig","ipconfig /all","ipconfig /release","netstat -r"], correct:1, exp:"'ipconfig /all' shows full details including whether DHCP is enabled, the assigned IP, subnet mask, gateway, DNS server, and the DHCP server address that provided the lease." }
   ],
   m8: [
     { q:"What does the 'A flag' in an IPv6 RA message tell a host?", choices:["Use stateful DHCPv6","Use SLAAC to create a GUA from the advertised prefix","Get only DNS from DHCPv6","Use static IPv6 config"], correct:1, exp:"A flag = 1 means: use SLAAC. The host takes the 64-bit prefix from the RA and generates its own 64-bit Interface ID." },
@@ -1255,8 +1310,8 @@ const quizData = {
     { q:"Which UDP port do client-to-server DHCPv6 messages use?", choices:["546","547","67","68"], correct:1, exp:"Client-to-server DHCPv6 uses UDP 547. Server-to-client uses UDP 546. (Compare DHCPv4: server=67, client=68)" },
     { q:"What command enables stateless DHCPv6 on a router interface (sets O flag)?", choices:["ipv6 nd managed-config-flag","ipv6 nd other-config-flag","ipv6 dhcp stateless","ipv6 unicast-routing"], correct:1, exp:"'ipv6 nd other-config-flag' sets O flag = 1: use SLAAC for GUA but contact stateless DHCPv6 server for extra info like DNS." },
     { q:"What command enables stateful DHCPv6 on a router interface (sets M flag)?", choices:["ipv6 nd other-config-flag","ipv6 nd managed-config-flag","ipv6 dhcp stateful enable","ipv6 unicast-routing"], correct:1, exp:"'ipv6 nd managed-config-flag' sets M flag = 1: host contacts stateful DHCPv6 server for all IPv6 addressing." },
-    { q:"How does a stateful DHCPv6 server differ from stateless?", choices:["Uses different UDP ports","Maintains a list of IPv6 address bindings","Only provides DNS info","Doesn't need ipv6 unicast-routing"], correct:1, exp:"Stateful DHCPv6 assigns GUAs AND maintains binding records (which address is assigned to which client). Stateless only provides config info." },
-    { q:"Which command shows DHCPv6 pool details including active clients?", choices:["show ip dhcp binding","show ipv6 dhcp pool","show ipv6 dhcp binding","show ipv6 interface brief"], correct:1, exp:"'show ipv6 dhcp pool' verifies pool name, parameters, and number of active clients. 'show ipv6 dhcp binding' shows actual addresses assigned." },
+    { q:"Which command configures a router interface as a stateful DHCPv6 client?", choices:["ipv6 address autoconfig","ipv6 address dhcp","ipv6 dhcp client enable","ip address dhcp"], correct:1, exp:"'ipv6 address dhcp' (interface config mode) requests a GUA from a stateful DHCPv6 server. Compare: 'ipv6 address autoconfig' uses SLAAC for the GUA." },
+    { q:"What RFC defines DHCPv6?", choices:["RFC 2131","RFC 3315","RFC 4861","RFC 4862"], correct:1, exp:"RFC 3315 defines DHCPv6 — 'Dynamic Host Configuration Protocol for IPv6.' RFC 2131 is DHCPv4, RFC 4861 is NDP, RFC 4862 is SLAAC." },
     { q:"When is an IPv6 link-local address automatically created?", choices:["Only after DHCPv6 assigns it","When host boots and Ethernet interface becomes active","Only after SLAAC completes","When admin manually configures it"], correct:1, exp:"The IPv6 link-local address is auto-created when the host boots and Ethernet interface becomes active — even without a router or DHCPv6 server." }
   ]
 };
@@ -1300,20 +1355,24 @@ const cmdData = {
     ["dns-server 8.8.8.8 8.8.4.4", "Set DNS server(s) for DHCP clients (up to 8 addresses)"],
     ["domain-name example.com", "Set domain name for DHCP clients"],
     ["lease 7", "Set lease duration (days). Use 'lease infinite' for no expiry"],
+    ["netbios-name-server 192.168.10.250", "Optional: set WINS/NetBIOS name server for Windows clients in dhcp-config mode"],
     ["no service dhcp", "Disable DHCP server process (global config)"],
     ["service dhcp", "Re-enable DHCP server process (enabled by default)"],
+    ["clear ip dhcp binding *", "Clear all DHCP bindings — caution: may cause temporary duplicate IPs"],
     ["ip helper-address 192.168.11.6", "Configure DHCP relay agent on router interface facing clients"],
     ["ip address dhcp", "Configure interface to get IP from DHCP server (router as client)"],
     ["show running-config | section dhcp", "Display only DHCPv4-related running configuration"],
     ["show ip dhcp binding", "View all IP-to-MAC address bindings issued by DHCP"],
     ["show ip dhcp server statistics", "Count of DHCP messages sent and received"],
-    ["show ip interface g0/0/1", "Verify interface is up and DHCP client address received"]
+    ["show ip interface g0/0/1", "Verify interface is up and DHCP client address received"],
+    ["ipconfig /all", "(Windows PC) Verify DHCP config received — IP, gateway, DNS, DHCP server address"]
   ],
   m8: [
     ["ipv6 unicast-routing", "Enable IPv6 routing AND start sending RA messages (required first step)"],
     ["ipv6 address 2001:db8:acad:1::1/64", "Manually configure IPv6 GUA on interface"],
     ["ipv6 enable", "Enable IPv6 on interface and auto-create link-local address"],
-    ["ipv6 address autoconfig", "Configure interface to use SLAAC (router as SLAAC client)"],
+    ["ipv6 address autoconfig", "Configure interface to use SLAAC for GUA (router as stateless DHCPv6 client)"],
+    ["ipv6 address dhcp", "Configure interface to get GUA from stateful DHCPv6 server (router as stateful client)"],
     ["ipv6 nd other-config-flag", "Set O flag=1 — stateless DHCPv6 (SLAAC + extra info from DHCPv6)"],
     ["ipv6 nd managed-config-flag", "Set M flag=1 — stateful DHCPv6 (get all config from DHCPv6 server)"],
     ["ipv6 nd prefix default no-autoconfig", "Set A flag=0 — tell hosts not to use SLAAC (for stateful DHCPv6)"],
@@ -1322,7 +1381,6 @@ const cmdData = {
     ["dns-server 2001:4860:4860::8888", "Set IPv6 DNS server in DHCPv6 pool"],
     ["domain-name example.com", "Set domain name in DHCPv6 pool"],
     ["ipv6 dhcp server IPV6-POOL", "Bind DHCPv6 pool to interface (interface config mode)"],
-    ["ipv6 address dhcp", "Configure interface to get IPv6 from stateful DHCPv6 (router as client)"],
     ["ipv6 dhcp relay destination 2001:db8::1 g0/0/0", "Configure DHCPv6 relay agent — server address and egress interface"],
     ["show ipv6 dhcp pool", "Verify pool name, parameters, and number of active clients"],
     ["show ipv6 dhcp binding", "View IPv6 link-local and GUA assigned to clients (stateful)"],
@@ -1344,11 +1402,14 @@ const glossData = {
     ["Designated Port","One per segment — the port with the best (lowest cost) path to root on that segment. Forwards traffic."],
     ["Alternate Port","Neither root nor designated — placed in blocking state to prevent loops. Still receives BPDUs."],
     ["Root Path Cost","Internal root path cost = sum of all port costs from a switch to the root bridge. Lower = preferred path."],
+    ["Short Path Cost","IEEE 802.1D cost values (e.g., 10 Mbps=100, 100 Mbps=19, 1 Gbps=4, 10 Gbps=2). Designed for networks up to 10 Gbps."],
+    ["Long Path Cost","RSTP 802.1w cost values — much larger numbers (e.g., 100 Mbps=200,000). Designed to accommodate future link speeds beyond 10 Gbps."],
     ["Broadcast Storm","Abnormally high broadcasts overwhelming the network — caused by Layer 2 loops. Can disable network in seconds."],
     ["PVST+","Per-VLAN Spanning Tree Plus — Cisco's STP with separate 802.1D instance per VLAN. Default on IOS 15.0+."],
     ["RSTP / 802.1w","Rapid Spanning Tree Protocol — faster convergence (sometimes milliseconds). 3 port states: Discarding, Learning, Forwarding."],
     ["Rapid PVST+","Cisco's RSTP + PVST+ = separate 802.1w instance per VLAN. Must be explicitly configured."],
-    ["MSTP / MST","Multiple Spanning Tree — maps multiple VLANs to same instance. MST = Cisco implementation (up to 16 RSTP instances)."],
+    ["MISTP","Multiple Instance STP — Cisco's original proprietary implementation that mapped VLANs to instances. Preceded and inspired the IEEE MSTP standard."],
+    ["MSTP / MST","Multiple Spanning Tree (IEEE 802.1s) — maps multiple VLANs to same instance. MST = Cisco implementation (up to 16 RSTP instances)."],
     ["PortFast","Bypasses 30-second Listening+Learning delay — port goes immediately to Forwarding. Use only on access ports."],
     ["BPDU Guard","Puts a PortFast port into errdisabled state if any BPDU is received. Admin must manually re-enable."],
     ["Hello Timer","Default 2-second interval between BPDU transmissions. Range: 1–10 sec."],
@@ -1378,7 +1439,9 @@ const glossData = {
     ["DHCP Pool","A named range of IP addresses a DHCP server can lease to clients."],
     ["Excluded Address","IP address(es) removed from DHCP pool — reserved for static assignment (routers, servers, printers)."],
     ["DHCP Relay Agent","Router with ip helper-address configured — forwards DHCP broadcasts across subnets as unicasts to remote DHCP server."],
-    ["ip helper-address","Command enabling DHCP relay. Also forwards 7 other UDP services (DNS, TFTP, TACACS, NetBIOS, etc.)"]
+    ["ip helper-address","Command enabling DHCP relay. Also forwards 7 other UDP services (DNS, TFTP, TACACS, NetBIOS, etc.)"],
+    ["netbios-name-server","DHCPv4 pool option to provide a WINS server address to Windows clients for NetBIOS name resolution."],
+    ["ipconfig /all","Windows command — displays full IP configuration including DHCP status, assigned addresses, DNS, and DHCP server IP."]
   ],
   m8: [
     ["GUA","Global Unicast Address — globally routable IPv6 address. Equivalent to a public IPv4 address."],
@@ -1395,7 +1458,10 @@ const glossData = {
     ["NA","Neighbor Advertisement — ICMPv6 reply to NS. Receiving an NA during DAD = address is a duplicate."],
     ["Stateless DHCPv6","DHCPv6 server provides only extra config (DNS, domain) — NOT the GUA. Host uses SLAAC for address. Server doesn't track bindings."],
     ["Stateful DHCPv6","DHCPv6 server assigns GUA and all config to clients. Server maintains a list of IPv6 address bindings."],
+    ["RFC 3315","The RFC that defines DHCPv6 — Dynamic Host Configuration Protocol for IPv6."],
     ["DHCPv6 Relay Agent","Router that forwards DHCPv6 messages between clients and a DHCPv6 server on a different network."],
+    ["ipv6 address autoconfig","Router client command — use SLAAC for GUA (stateless DHCPv6 client mode)."],
+    ["ipv6 address dhcp","Router client command — request GUA from stateful DHCPv6 server (stateful DHCPv6 client mode)."],
     ["ff02::1","IPv6 all-nodes multicast address — RA messages are sent here."],
     ["ff02::2","IPv6 all-routers multicast address — RS messages are sent here. Routers join this group via ipv6 unicast-routing."],
     ["Solicited-node Multicast","Special multicast address used in DAD — formed from the last 24 bits of the host's IPv6 address."],
@@ -1413,7 +1479,7 @@ const examQ = [
   { mod:"m6", q:"Which EtherChannel mode combination will NEVER form a channel?", choices:["LACP Active + Passive","PAgP Desirable + Auto","LACP Active + Active","LACP Passive + Passive"], correct:3, exp:"Passive + Passive and Auto + Auto never form a channel — both sides wait for the other to initiate. At least one must be active/initiating." },
   { mod:"m7", q:"Which command correctly excludes IPs 10.0.0.1–10.0.0.20 from DHCP?", choices:["ip dhcp pool exclude 10.0.0.1 10.0.0.20","ip dhcp excluded-address 10.0.0.1 10.0.0.20","no ip dhcp address 10.0.0.1 10.0.0.20","ip dhcp reserve 10.0.0.1 10.0.0.20"], correct:1, exp:"'ip dhcp excluded-address low-address [high-address]' is the correct syntax for excluding a range from DHCP." },
   { mod:"m8", q:"During DAD, a host receives a Neighbor Advertisement (NA). What does this mean?", choices:["Address is unique — safe to use","Address is a duplicate — generate a new interface ID","DAD was successful","Router confirmed the address"], correct:1, exp:"Receiving an NA means another device already uses that address. The host must generate a new interface ID and repeat DAD." },
-  { mod:"m5", q:"Which STP variety maps MULTIPLE VLANs to the SAME spanning tree instance?", choices:["PVST+","Rapid PVST+","MSTP / MST","CST (original STP)"], correct:2, exp:"MSTP/MST maps multiple VLANs to the same instance. PVST+ and Rapid PVST+ run a separate instance per VLAN." },
+  { mod:"m5", q:"Which STP variety maps MULTIPLE VLANs to the SAME spanning tree instance?", choices:["PVST+","Rapid PVST+","MSTP / MST","CST (original STP)"], correct:2, exp:"MSTP/MST maps multiple VLANs to the same instance. PVST+ and Rapid PVST+ run a separate instance per VLAN. MISTP was Cisco's proprietary predecessor to the IEEE MSTP standard." },
   { mod:"m6", q:"S1 uses PAgP 'auto', S2 uses PAgP 'on'. Why won't EtherChannel form?", choices:["On mode only works with LACP","'On' forces channel without negotiation — auto (passive) keeps waiting for PAgP packets that 'on' never sends","Auto requires the other side to also be auto","PAgP doesn't support 'on' mode"], correct:1, exp:"'On' mode forces EtherChannel without any protocol negotiation. It only works if the OTHER side is also 'on'. Auto keeps waiting for PAgP packets." },
   { mod:"m7", q:"'show ip dhcp binding' shows:", choices:["DHCP server message count statistics","DHCPv4 pool configuration settings","IPv4-to-MAC address mappings issued by DHCP","Excluded address ranges"], correct:2, exp:"'show ip dhcp binding' lists all IPv4-to-MAC address bindings — showing which client (by MAC) has which leased IP address." },
   { mod:"m8", q:"What command enables a router to send RA messages for SLAAC?", choices:["ipv6 slaac enable","ipv6 nd ra-interval 200","ipv6 unicast-routing","ipv6 enable"], correct:2, exp:"'ipv6 unicast-routing' enables IPv6 routing AND causes the router to join ff02::2 (all-routers group), starting RA transmissions to ff02::1." },
